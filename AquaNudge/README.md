@@ -19,3 +19,11 @@ Tank rules used in the preview:
 Moods: Happy (70%+), Restless (40–70%), Worried (15–40%), Parched (below 15%). Finn never dies.
 
 The page is authored for the Claude artifact viewer, which adds the `<html>/<head>` skeleton; it also opens directly in a browser.
+
+## 3D Finn character study
+
+`prototype/finn-3d.html` is a 3D fantail goldfish built with three.js (r128 from cdnjs): an egg-shaped body with scales and a clearcoat sheen, see-through rayed fins, breathing gills, and large expressive eyes with lids that carry the mood.
+
+- **Moods:** Happy, Restless, Worried, Parched. Each changes colour, fin spread, eyelids, gaze and swimming behaviour.
+- **Extras:** a refill celebration (a loop-the-loop and a burst of bubbles), and food you can drop by tapping.
+- **Next:** once the look is approved, this fish replaces the 2D one in the watch preview. Later it can be exported as a 3D model for SceneKit in the real watchOS app.
