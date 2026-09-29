@@ -26,4 +26,5 @@ The page is authored for the Claude artifact viewer, which adds the `<html>/<hea
 
 - **Moods:** Happy, Restless, Worried, Parched. Each changes colour, fin spread, eyelids, gaze and swimming behaviour.
 - **Extras:** a refill celebration (a loop-the-loop and a burst of bubbles), and food you can drop by tapping.
-- **Next:** once the look is approved, this fish replaces the 2D one in the watch preview. Later it can be exported as a 3D model for SceneKit in the real watchOS app.
+- **In the watch preview:** `prototype/finn3d.js` holds the same fish as a reusable module. `index.html` renders it on a small transparent WebGL canvas each frame and draws it into the 2D tank, so the water tint, light and water level still apply. If WebGL is unavailable, the preview falls back to the 2D fish.
+- **Later:** the model can be exported for SceneKit in the real watchOS app.

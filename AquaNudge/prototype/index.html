@@ -236,6 +236,8 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   </section>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="finn3d.js"></script>
 <script>
 (() => {
 'use strict';
@@ -287,11 +289,34 @@ function checkNudge(){
 /* ---------------- Canvas setup ---------------- */
 const cv = $('#cv'), ctx = cv.getContext('2d');
 const W = 308; let H = 390, K = 1, DPR = 1;
+
+/* 3D Finn, drawn into the tank each frame (falls back to the 2D fish without WebGL) */
+let finn3d = null, finnIcon = null, frameDt = 0, frameT = 0;
+const FINN_W = 150;
+try { finn3d = window.Finn3D ? Finn3D.create() : null; } catch (e) { finn3d = null; }
+if (finn3d) {
+  try {
+    finn3d.setSize(240, 160);
+    finn3d.render({dt:0, t:0, mood:'happy', face:1, tilt:0, speed:.3});
+    finnIcon = document.createElement('canvas'); finnIcon.width = 240; finnIcon.height = 160;
+    finnIcon.getContext('2d').drawImage(finn3d.canvas, 0, 0);
+  } catch (e) { finn3d = null; finnIcon = null; }
+}
+const mouthX = () => finn3d ? FINN_W*finn3d.mouthOffset : 28;
+function drawFinn(g, x, y, s, st){
+  if (!finn3d) return false;
+  finn3d.render(Object.assign({dt:frameDt, t:frameT}, st));
+  const w = FINN_W*s, h = w/finn3d.aspect;
+  g.drawImage(finn3d.canvas, x - w/2, y - h/2, w, h);
+  return true;
+}
+
 function resize(){
   const r = cv.getBoundingClientRect(); if (!r.width) return;
   DPR = Math.min(window.devicePixelRatio || 1, 2.5);
   cv.width = Math.round(r.width*DPR); cv.height = Math.round(r.height*DPR);
   K = r.width / W; H = r.height / K;
+  if (finn3d) finn3d.setSize(FINN_W*K*DPR, FINN_W/finn3d.aspect*K*DPR);
 }
 new ResizeObserver(resize).observe(cv); resize();
 
@@ -345,7 +370,7 @@ function vitality(){ return sstep(.08, .72, S.shown); }
 function updateFish(dt, t){
   const v = vitality(), mood = moodOf(S.shown);
   const surf = levelToY(S.shown), fl = floorY();
-  const top = surf + 20, bot = fl - 18;
+  const top = surf + (finn3d ? 32 : 20), bot = fl - (finn3d ? 20 : 18);
   const parched = mood === 'parched' || bot - top < 8;
   const target = food.find(p => p.y > surf + 4);
 
@@ -373,7 +398,7 @@ function updateFish(dt, t){
     // happy bubbles
     fish.bubT -= dt;
     if (mood === 'happy' && fish.bubT <= 0) { fish.bubT = rand(3,6); fish.mouthT = .5;
-      for (let i=0;i<3;i++) setTimeout(() => bubbles.push({x:fish.x + fish.face*30, y:fish.y - 1, r:rand(1.2,2.4), vy:-rand(18,26), ph:rand(0,6)}), i*140); }
+      for (let i=0;i<3;i++) setTimeout(() => bubbles.push({x:fish.x + fish.face*(mouthX() + 2), y:fish.y - 1, r:rand(1.2,2.4), vy:-rand(18,26), ph:rand(0,6)}), i*140); }
   } else {
     // stranded near the floor: rest, gasp, and flop now and then
     const restY = fl - 11;
@@ -410,7 +435,7 @@ function updateFish(dt, t){
   fish.lookX += (clamp(lx,-1,1) - fish.lookX)*Math.min(1, dt*5);
   fish.lookY += (clamp(ly,-1,1) - fish.lookY)*Math.min(1, dt*5);
   // eat
-  for (const p of food) if (Math.hypot(p.x - (fish.x + fish.face*28), p.y - fish.y) < 11) {
+  for (const p of food) if (Math.hypot(p.x - (fish.x + fish.face*mouthX()), p.y - fish.y) < 11) {
     p.eaten = true; fish.wig = 1; fish.happyT = 1.6; fish.mouthT = .25;
     for (let i=0;i<4;i++) bubbles.push({x:p.x, y:p.y, r:rand(.8,1.8), vy:-rand(20,34), ph:rand(0,6)});
   }
@@ -670,7 +695,10 @@ function drawTank(t, dim){
   for (const p of food) { ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI*2); ctx.fillStyle = '#b86a3a'; ctx.fill(); ctx.beginPath(); ctx.arc(p.x - .6, p.y - .6, .7, 0, Math.PI*2); ctx.fillStyle = 'rgba(255,220,180,.7)'; ctx.fill(); }
 
   // fish
-  drawFish(ctx, fish.x, fish.y, 1.06, fish.face, fish.tilt, fishParams(v, mood));
+  const bait = food.find(p => p.y > surf + 4);
+  if (!drawFinn(ctx, fish.x, fish.y, 1, {mood, face:fish.face, tilt:fish.tilt, speed:Math.hypot(fish.vx, fish.vy)/40, burst:fish.wig,
+      mouth:fish.mouth, squint:fish.happyT > 0 ? 1 : 0, look:bait ? {dx:(bait.x - fish.x)/FINN_W, dy:(bait.y - fish.y)/FINN_W} : null}))
+    drawFish(ctx, fish.x, fish.y, 1.06, fish.face, fish.tilt, fishParams(v, mood));
   drawPlant(ctx, frontPlant, frontPlant.x, fl + 10, 1, t, x => surfAt(x, t), v);
 
   // in-water tint, murk and motes (drawn over everything below the surface)
@@ -753,6 +781,7 @@ function drawMiniTank(x0, y0, w, h, t){
   const c = Math.cos(t*.32), face = clamp(c*3, -1, 1);
   const mx = x0 + w*.64 - Math.sin(t*.32)*w*.2;
   const my = parched ? fl - 6 : lerp(surf + 14, fl - 12, .5) + Math.sin(t*.9)*3;
+  if (!drawFinn(ctx, mx, my, .52, {mood, face, tilt:parched ? .26*Math.sign(face) : 0, speed:.35, mouth:parched ? .5 + .5*Math.sin(t*3.2) : 0}))
   drawFish(ctx, mx, my, .55, face, parched ? .26*Math.sign(face) : 0, {
     phase: t*lerp(7, 15, v), amp: lerp(.9, 2.4, v), vit: v, mouth: parched ? .5 + .5*Math.sin(t*3.2) : 0,
     lid: {happy:0, restless:.12, worried:.3, parched:.5}[mood], slant: mood === 'worried' ? 1 : parched ? .7 : 0,
@@ -796,7 +825,8 @@ function drawIcon(t){
   ictx.setTransform(1, 0, 0, 1, 0, 0); ictx.clearRect(0, 0, 72, 72);
   const g = ictx.createLinearGradient(0, 0, 0, 72); g.addColorStop(0, '#2fb3c9'); g.addColorStop(1, '#0a3a52');
   ictx.fillStyle = g; ictx.fillRect(0, 0, 72, 72);
-  drawFish(ictx, 40, 38, .72, 1, 0, {phase:t*9, amp:1.6, vit:1, mouth:0, lid:0, slant:0, lookX:.6, lookY:0, droop:0, blush:.6});
+  if (finnIcon) ictx.drawImage(finnIcon, 36 - 44, 36 - 29, 88, 58.7);
+  else drawFish(ictx, 40, 38, .72, 1, 0, {phase:t*9, amp:1.6, vit:1, mouth:0, lid:0, slant:0, lookX:.6, lookY:0, droop:0, blush:.6});
 }
 function showNotif(band, buzz){
   S.notif = true; S.notifBand = band;
@@ -912,6 +942,7 @@ function frame(now){
   S.shown += (S.level - S.shown)*(1 - Math.exp(-dt*2.2));
   // animation
   const ts = S.scene === 'aod' ? .35 : 1;
+  frameDt = dt*ts; frameT = t;
   updateFish(dt*ts, t);
   updateParticles(dt*ts, t);
   ctx.setTransform(DPR*K, 0, 0, DPR*K, 0, 0);
