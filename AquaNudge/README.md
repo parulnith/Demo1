@@ -28,3 +28,7 @@ The page is authored for the Claude artifact viewer, which adds the `<html>/<hea
 - **Extras:** a refill celebration (a loop-the-loop and a burst of bubbles), and food you can drop by tapping.
 - **In the watch preview:** `prototype/finn3d.js` holds the same fish as a reusable module. `index.html` renders it on a small transparent WebGL canvas each frame and draws it into the 2D tank, so the water tint, light and water level still apply. If WebGL is unavailable, the preview falls back to the 2D fish.
 - **Later:** the model can be exported for SceneKit in the real watchOS app.
+
+## Screenshots
+
+`previews/` holds screenshots of each version: the first 2D prototype (`preview-1` to `preview-5`), the 3D Finn study (`preview-3d-*`) and 3D Finn in the watch preview (`preview-watch-3d-*`).
